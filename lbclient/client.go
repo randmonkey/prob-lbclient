@@ -73,11 +73,13 @@ func (c *Client) WithResolver(r *Resolver) *Client {
 	return c
 }
 
+// set interval of each request.
 func (c *Client) WithRequestInterval(interval time.Duration) *Client {
 	c.RequestInterval = interval
 	return c
 }
 
+// set max concurrent requests that are in flight.
 func (c *Client) WithMaxRequestConcurrent(maxConn int) *Client {
 	c.MaxConcurrentRequests = maxConn
 	c.requestResultCh = make(chan requestResult, c.MaxConcurrentRequests)
@@ -85,6 +87,7 @@ func (c *Client) WithMaxRequestConcurrent(maxConn int) *Client {
 	return c
 }
 
+// start sending requests.
 func (c *Client) SendRequests() {
 	if c.resolver != nil {
 		ips, err := c.resolver.Lookup(time.Second, c.URL.Host)
@@ -117,9 +120,11 @@ func (c *Client) SendRequests() {
 		select {
 		case res := <-c.requestResultCh:
 			if res.err != nil {
+				// failed to get response.
 				fmt.Printf("ip %s failed to get response: %v\n", res.ip, res.err)
 				c.selector.SetFail(res.ip)
 			} else if res.code >= 500 {
+				// 5xx response.
 				fmt.Printf("ip %s failed, code %v\n", res.ip, res.code)
 				c.selector.SetFail(res.ip)
 			} else {
@@ -140,6 +145,7 @@ func (c *Client) SendRequests() {
 	}
 }
 
+// send one request to server.
 func (c *Client) sendOneRequest() {
 	ip := c.selector.SelectIP()
 	dialer := &net.Dialer{
@@ -149,6 +155,7 @@ func (c *Client) sendOneRequest() {
 	httpClient := &http.Client{
 		Timeout: c.RequestTimeout,
 		Transport: &http.Transport{
+			// set target IP to the selected IP by specifying dial function.
 			DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
 				host, port, _ := net.SplitHostPort(addr)
 				if port == "" {
@@ -171,11 +178,13 @@ func (c *Client) sendOneRequest() {
 			err: err,
 			ip:  ip,
 		}
+		// notice an error.
 		c.requestResultCh <- reqResult
 		return
 	}
 	dur := time.Now().Sub(start)
 
+	// notice the response code.
 	reqResult := requestResult{
 		code:        resp.StatusCode,
 		ip:          ip,
@@ -184,6 +193,7 @@ func (c *Client) sendOneRequest() {
 	c.requestResultCh <- reqResult
 
 	if c.HandleResponse != nil {
+		// handle response if wanted to use the response to do something.
 		c.HandleResponse(resp)
 	}
 }

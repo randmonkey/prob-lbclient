@@ -11,6 +11,7 @@ type Selector interface {
 	SetFail(ip string)
 }
 
+// Roundrobin selector uses next IP in slice (in round) when request comes.
 type RoundRobinSelector struct {
 	ips []string
 
