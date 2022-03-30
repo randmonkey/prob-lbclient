@@ -2,8 +2,13 @@ package lbclient
 
 import (
 	"context"
+	"errors"
 	"net"
 	"time"
+)
+
+var (
+	ErrResolveFail = errors.New("all DNS servers failed to resolve")
 )
 
 type Resolver struct {
@@ -63,8 +68,9 @@ func (r *Resolver) Lookup(timeout time.Duration, host string) ([]string, error) 
 			if res.err == nil {
 				return res.names, nil
 			}
+		// timed out, that means no DNS server has returned a successful resolving result
 		case <-ctx.Done():
-			return nil, ctx.Err()
+			return nil, ErrResolveFail
 		}
 	}
 }
